@@ -1,3 +1,4 @@
+var random = require('./randomArray');
 /**
  * 插入排序
  * 排序算法将数组分类有序和无序两部分，每次都取一个无序的数组往有序的数组中寻找自己的位置
@@ -14,12 +15,12 @@ function insertSort(arr) {
                 break;
             }
         }
-        console.log(j);
         //j结束的是时候还会做一次减减的操作
         arr[j + 1] = value;
     }
     return arr
 }
-
-let arr = [333, 24, 123, 234, 1, 51, 32, 12, 34];
-console.log(insertSort(arr));
+let arr = random.randomArray(10000);
+console.time();
+insertSort(arr);
+console.timeEnd();

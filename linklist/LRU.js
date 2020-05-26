@@ -1,8 +1,9 @@
 class Node {
-    constructor(value) {
-        this.value = value;
+    constructor(key, value) {
         this.next = null;
         this.pre = null;
+        this.value = value;
+        this.key = key
     }
 }
 /**
@@ -12,23 +13,59 @@ var LRUCache = function(capacity) {
     if (!(this instanceof LRUCache)) {
         return new LRUCache(capacity);
     }
+    this.headerSym = Symbol('header');
     this.capacity = capacity;
     this.currSize = 0;
-    this.cache = {};
-    this.head = new Node("header");
     this.tail = null;
-};
+    this.head = new Node(this.headerSym, this.headerSym);
+    this.cache = new Map();
 
+};
+/**
+ * 淘汰尾部节点
+ */
+LRUCache.prototype.tailNode = function() {
+    let key = this.tail.key;
+    this.tail = this.tail.pre;
+    this.tail.next = null;
+    return this.cache.delete(key);
+};
+LRUCache.prototype.upDateTail = function(currNode, turnNode) {
+    if (currNode.next == null && (this.head.next == null || currNode.pre.value != this.headerSym))
+        this.tail = turnNode;
+};
+/**
+ * @param {number} key
+ * 将被激活的节点移动到头部
+ */
+LRUCache.prototype.elevateNodeToHead = function(key) {
+
+    let cacheMap = this.cache.get(key);
+    // 前驅節點是head 不做操作
+    if (cacheMap.pre.value == this.headerSym)
+        return;
+    // 該節點不是最後一個節點
+    if (cacheMap.next != null)
+        cacheMap.next.pre = cacheMap.pre;
+    cacheMap.pre.next = cacheMap.next;
+    this.head.next.pre = cacheMap;
+    cacheMap.next = this.head.next;
+    this.head.next = cacheMap;
+    cacheMap.pre = this.head;
+};
 /** 
  * @param {number} key
  * @return {number}
  */
 LRUCache.prototype.get = function(key) {
-    if (this.cache[key] == undefined) return -1;
-    this.cache[key].next = this.head.next;
-    this.cache[key].pre = this.head;
-    this.head.next = this.cache[key];
-    return this.cache[key].value;
+    let cacheMap = this.cache.get(key);
+
+    if (cacheMap == undefined) return -1;
+    //判断尾部的key是否于用户输入的key相同
+    this.upDateTail(cacheMap, cacheMap.pre);
+    this.elevateNodeToHead(key);
+
+    return cacheMap.value;
 };
 
 /** 
@@ -37,34 +74,33 @@ LRUCache.prototype.get = function(key) {
  * @return {void}
  */
 LRUCache.prototype.put = function(key, value) {
-
+    let cacheMap = this.cache.get(key);
     // 插入
-    if (this.cache[key] == undefined) {
-        this.cache[key] = new Node(value);
+    if (cacheMap == undefined) {
+        this.cache.set(key, new Node(key, value));
+        cacheMap = this.cache.get(key);
         this.currSize++;
     } else {
         // 更新
-        this.tail = this.cache[key].pre;
-        this.cache[key].pre.next = null;
-        this.cache[key].value = value;
+        // 移动活动节点到头部
+        cacheMap.value = value;
+        this.upDateTail(cacheMap, cacheMap.pre);
+        this.elevateNodeToHead(key);
+        return;
     }
-    // 插入header之後
-    if (this.head.next != undefined) {
-        this.head.next.pre = this.cache[key];
+    // 如果是第一个节点
+    if (this.head.next == null) {
+        this.upDateTail(cacheMap, cacheMap);
     } else {
-        this.tail = this.cache[key];
+        this.head.next.pre = cacheMap;
     }
-    this.cache[key].next = this.head.next;
-    this.head.next = this.cache[key];
-    this.cache[key].pre = this.head;
-
-
+    cacheMap.next = this.head.next;
+    cacheMap.pre = this.head;
+    this.head.next = cacheMap;
     //淘汰末尾
     if (this.currSize > this.capacity) {
-        // tail想前近一個結點
-        this.tail = this.tail.pre;
-        this.tail.next.pre = null;
-        this.tail.next = null;
+        if (this.tailNode())
+            this.currSize--;
     }
 };
 /**
@@ -73,10 +109,3 @@ LRUCache.prototype.put = function(key, value) {
  * var param_1 = obj.get(key)
  * obj.put(key,value)
  */
-
-
-
-let LRU = new LRUCache(2);
-LRU.put(1, 1);
-
-LRU.put(2, 2);
